@@ -14,6 +14,7 @@ from collections import deque
 from typing import Deque, List
 
 import matplotlib
+from mypy.util import T
 matplotlib.use("Qt5Agg")  # interactive backend required for plt.show() in WSL
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -27,8 +28,8 @@ from solar_system.planets import Planet, Sun
 
 DT              = 3600 * 6        # time step: 6 hours
 STEPS_PER_FRAME = 20              # simulation steps advanced per animation frame
-TRAIL_LENGTH    = 300             # number of past positions kept for trail
-INTERVAL_MS     = 30             # milliseconds between frames (~33 fps)
+TRAIL_LENGTH    = 10             # number of past positions kept for trail
+INTERVAL_MS     = 100             # milliseconds between frames (~5 fps)
 
 AU = 1.496e11  # metres per AU
 
@@ -130,9 +131,9 @@ def main() -> None:
         l_i  = ax_inner.text(0, 0, planet.name, color=colour, fontsize=6, zorder=4)
         l_o  = ax_outer.text(0, 0, planet.name, color=colour, fontsize=6, zorder=4)
 
-        inner_dots.append(d_i);   outer_dots.append(d_o)
-        inner_trails.append(t_i); outer_trails.append(t_o)
-        inner_labels.append(l_i); outer_labels.append(l_o)
+        inner_dots.append(d_i);     outer_dots.append(d_o)
+        inner_trails.append(t_i);   outer_trails.append(t_o)
+        inner_labels.append(l_i);   outer_labels.append(l_o)
 
     # Elapsed-time text (placed in the outer subplot title, avoids blit=True crash)
     elapsed = [0.0]  # mutable container so the closure can update it
@@ -150,7 +151,7 @@ def main() -> None:
         years = elapsed[0] / (365.25 * 24 * 3600)
         ax_outer.set_title(f"Full solar system — {years:.2f} years", color="#cccccc")
 
-        artists = []
+        artists = [ax_outer.title]  # title artist must be included for blit=True
         for i, planet in enumerate(planets):
             trails[i].append(planet.Position.copy())
             x_au = planet.Position[0] / AU
@@ -174,14 +175,15 @@ def main() -> None:
         fig,
         update,
         interval=INTERVAL_MS,
-        blit=False,
+        blit=True,
         cache_frame_data=False,
     )
 
-    plt.show()
+    # Stop the Qt timer cleanly before Qt tears down the event loop,
+    # preventing the "TimerQT.__del__ NoneType not callable" error on exit.
+    fig.canvas.mpl_connect("close_event", lambda _: ani.event_source.stop())
 
-    # Keep reference so GC doesn't collect the animation
-    _ = ani
+    plt.show()
 
 
 if __name__ == "__main__":
